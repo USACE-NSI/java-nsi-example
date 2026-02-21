@@ -13,31 +13,39 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class NsiExample {
 
     public static void main(String[] args) {
-        String url = "https://nsi.sec.usace.army.mil/nsiapi/structures?bbox=-81.58418,30.25165,-81.58161,30.26939,-81.55898,30.26939,-81.55281,30.24998,-81.58418,30.25165";
+        //"https://nsi.sec.usace.army.mil/nsiapi/structures?bbox=-81.58418,30.25165,-81.58161,30.26939,-81.55898,30.26939,-81.55281,30.24998,-81.58418,30.25165";
 
         // 1. Create the HttpClient
         HttpClient client = HttpClient.newHttpClient();
 
-        // 2. Build the GET request
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Accept", "application/json") // Request JSON format
-                .GET()
-                .build();
+
 
         try {
-            System.out.println("Downloading data from NSI API...");
-            
+            System.out.println("Forward link fetching the NSI API root...");
+            String url = "https://www.hec.usace.army.mil/fwlink/?linkid=1&type=string";
+            // 2. Build the GET request
+            HttpRequest requestFWLink = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .build();
+            HttpResponse<String> response = client.send(requestFWLink, HttpResponse.BodyHandlers.ofString());
+            url = response.body() + "structures?bbox=-81.58418,30.25165,-81.58161,30.26939,-81.55898,30.26939,-81.55281,30.24998,-81.58418,30.25165";
+
+            System.out.println("Downloading data from NSI API..." + " " + url);
+            HttpRequest requestNSI = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Accept", "application/json") // Request JSON format
+                    .GET()
+                    .build();
             // 3. Send the request and save the response body directly to a file
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> responseNSI = client.send(requestNSI, HttpResponse.BodyHandlers.ofString());
             
-            if (response.statusCode() == 200) {
+            if (responseNSI.statusCode() == 200) {
                 System.out.println("Download successful!"); //Response was: " + response.body());
                  ObjectMapper mapper = new ObjectMapper();
                 // This ensures that if the JSON has extra fields, the code won't crash
                 mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-                FeatureCollection data = mapper.readValue(response.body(), FeatureCollection.class);
+                FeatureCollection data = mapper.readValue(responseNSI.body(), FeatureCollection.class);
 
                 // Example: Accessing data from the first feature
                 System.out.println("Feature count: " + data.features.size());
@@ -45,7 +53,7 @@ public class NsiExample {
                 System.out.println("First Feature Structure Value: " + data.features.get(0).properties.valStruct);
                 System.out.println("Coordinates: " + data.features.get(0).geometry.coordinates);
             } else {
-                System.err.println("Failed to download. HTTP Status: " + response.statusCode());
+                System.err.println("Failed to download. HTTP Status: " + responseNSI.statusCode());
             }
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
