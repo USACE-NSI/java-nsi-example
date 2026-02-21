@@ -7,15 +7,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 public class NsiExample {
 
     public static void main(String[] args) {
-                String url = "https://nsi.sec.usace.army.mil/nsiapi/structures?bbox=-81.58418,30.25165,-81.58161,30.26939,-81.55898,30.26939,-81.55281,30.24998,-81.58418,30.25165";
-        
-        // Define where to save the output (usually returns GeoJSON)
-        Path outputPath = Paths.get("nsi_structures.json");
+        String url = "https://nsi.sec.usace.army.mil/nsiapi/structures?bbox=-81.58418,30.25165,-81.58161,30.26939,-81.55898,30.26939,-81.55281,30.24998,-81.58418,30.25165";
 
         // 1. Create the HttpClient
         HttpClient client = HttpClient.newHttpClient();
@@ -31,11 +29,21 @@ public class NsiExample {
             System.out.println("Downloading data from NSI API...");
             
             // 3. Send the request and save the response body directly to a file
-            HttpResponse<Path> response = client.send(request, 
-                    HttpResponse.BodyHandlers.ofFile(outputPath));
-
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            
             if (response.statusCode() == 200) {
-                System.out.println("Download successful! File saved to: " + response.body().toAbsolutePath());
+                System.out.println("Download successful!"); //Response was: " + response.body());
+                 ObjectMapper mapper = new ObjectMapper();
+                // This ensures that if the JSON has extra fields, the code won't crash
+                mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+                FeatureCollection data = mapper.readValue(response.body(), FeatureCollection.class);
+
+                // Example: Accessing data from the first feature
+                System.out.println("Feature count: " + data.features.size());
+                System.out.println("First Feature ID: " + data.features.get(0).properties.fdId);
+                System.out.println("First Feature Structure Value: " + data.features.get(0).properties.valStruct);
+                System.out.println("Coordinates: " + data.features.get(0).geometry.coordinates);
             } else {
                 System.err.println("Failed to download. HTTP Status: " + response.statusCode());
             }
